@@ -1,39 +1,88 @@
-# Employee Management System designed by Hunter Laberge
+# Simple Employee Management System using SQLite DB designed by Hunter Laberge
 
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+import sqlite3
+class Database:
+    def __init__(self):
+        # Establish a connection to the SQLite database
+        self.conn = sqlite3.connect('employee.db')
+        self.cursor = self.conn.cursor()
 
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name('python-library-key.json', scope)
+        # Create the employees table if it doesn't exist
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS employees
+                               (id TEXT PRIMARY KEY,
+                                name TEXT,
+                                age INTEGER,
+                                department TEXT,
+                                position TEXT)''')
 
-# Create a client to interact with Google Sheets
-client = gspread.authorize(creds)
+    def add_employee(self, employee):
+        # Insert employee data into the employees table
+        self.cursor.execute('''INSERT INTO employees (id, name, age, department, position)
+                               VALUES (?, ?, ?, ?, ?)''',
+                            (employee['id'], employee['name'], employee['age'], employee['department'], employee['position']))
+        self.conn.commit()
 
-# Open the desired Google Sheet
-spreadsheet_id = 'https://docs.google.com/spreadsheets/d/1UVIAJKWEkbPNAVJOaXCSRDSQ66T_Qgz0GHjP1U492ig/edit#gid=0'
-sheet_name = 'Sheet1'
-sheet = client.open_by_key(spreadsheet_id).worksheet(sheet_name)
+    def find_employee(self, employee_id):
+        # Retrieve an employee with the specified ID from the employees table
+        self.cursor.execute('SELECT * FROM employees WHERE id = ?', (employee_id,))
+        employee = self.cursor.fetchone()
+        if employee:
+            return {
+                'id': employee[0],
+                'name': employee[1],
+                'age': employee[2],
+                'department': employee[3],
+                'position': employee[4]
+            }
+        else:
+            return None
+
+    def edit_employee(self, employee_id, new_data):
+        # Update employee data in the employees table
+        self.cursor.execute('''UPDATE employees
+                               SET name = ?, age = ?, department = ?, position = ?
+                               WHERE id = ?''',
+                            (new_data['name'], new_data['age'], new_data['department'], new_data['position'], employee_id))
+        self.conn.commit()
+        return self.cursor.rowcount > 0
+
+    def remove_employee(self, employee_id):
+        # Delete an employee from the employees table
+        self.cursor.execute('DELETE FROM employees WHERE id = ?', (employee_id,))
+        self.conn.commit()
+        return self.cursor.rowcount > 0
 
 
-while True:
-    print("*****Query for Employee Records*****")
-    print("1.) Add Employee")
-    print("2.) Find Employee")
-    print("3.) Edit Employee")
-    print("4.) Exit Application")
+def employee_management_system():
+    database = Database()
 
-    choice = input("Select an option: ")
+    while True:
+        print("***** Employee Management System *****")
+        print("1.) Add Employee")
+        print("2.) Find Employee")
+        print("3.) Edit Employee")
+        print("4.) Remove Employee")
+        print("5.) Exit Application")
 
-    if choice == "1":
-        print("*****ADD EMPLOYEE*****")
+        choice = input("Select an option: ")
+
+        if choice == "1":
+            add_employee(database)
+        elif choice == "2":
+            find_employee(database)
+        elif choice == "3":
+            edit_employee(database)
+        elif choice == "4":
+            remove_employee(database)
+        elif choice == "5":
+            print("Exiting the application.")
+            break
+        else:
+            print("Invalid choice. Make sure to only use numbers (1-5).")
+
+    # Close the connection to the SQLite database
+    database.conn.close()
 
 
-    elif choice == "2":
-        print("You Selected 'Find Employee' ")
-    elif choice == "3":
-        print("You Selected 'Edit Employee' ")
-    elif choice == "4":
-        print("You Selected 'Exit Application' ")
-        break
-    else:
-        print("Invalid choice. Make sure to only use numbers. Ex: 1, 2, 3, 4")
+# Run the employee management system
+employee_management_system()
